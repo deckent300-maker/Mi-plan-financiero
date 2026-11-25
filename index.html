@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>Mi Plan Financiero</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #131b33;
+      --card-2: #192444;
+      --text: #eef2ff;
+      --muted: #9fb0d9;
+      --accent: #22c55e;
+      --accent-2: #38bdf8;
+      --warn: #f59e0b;
+      --border: rgba(255, 255, 255, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+      padding-bottom: 48px;
+    }
+    .container { max-width: 680px; margin: 0 auto; }
+    h1 { font-size: 1.45rem; margin: 0 0 6px; }
+    .sub { color: var(--muted); font-size: 0.9rem; margin: 0 0 18px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .card h2 { font-size: 1.05rem; margin: 0 0 10px; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .muted { color: var(--muted); font-size: 0.88rem; }
+    .big { font-size: 1.35rem; font-weight: 700; color: var(--accent); }
+    .bar-wrap {
+      width: 100%;
+      height: 12px;
+      background: var(--card-2);
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+    .bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent-2), var(--accent));
+      transition: width 0.25s ease;
+    }
+    button {
+      background: var(--accent);
+      color: #06210f;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.secondary {
+      background: var(--card-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    button.warn {
+      background: var(--warn);
+      color: #1f1300;
+    }
+    .btn-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card-2);
+      color: var(--text);
+      margin-top: 6px;
+    }
+    .item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.92rem;
+    }
+    .item:last-child { border-bottom: none; }
+    .badge {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-2);
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Mi Plan Financiero</h1>
+    <p class="sub">Control local de abonos, ahorro y deudas (guardado en tu dispositivo).</p>
+
+    <div class="card">
+      <div class="row">
+        <h2>Meta Discover (...5215) — Límite 6 dic</h2>
+        <span class="badge" id="metaPct">0%</span>
+      </div>
+      <div class="row">
+        <span class="muted">Abonado a la meta: <strong id="metaActual">$0.00</strong> / $227.00</span>
+        <span class="muted">Saldo ref.: $3,228.08</span>
+      </div>
+      <div class="bar-wrap"><div class="bar" id="metaBar"></div></div>
+      <div class="btn-group">
+        <button onclick="addAbono(50, 'Abono Discover (...5215)')">+ Abonar $50</button>
+        <button class="secondary" onclick="addAbono(27, 'Ajuste Discover (...5215)')">+ Abonar $27</button>
+        <button class="secondary" onclick="resetMeta()">Reiniciar meta</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Ahorro y Freno de 24h</h2>
+      <div class="row">
+        <span class="muted">Dinero salvado / ahorrado:</span>
+        <span class="big" id="ahorroTotal">$0.00</span>
+      </div>
+      <label class="muted" for="impulsoDesc">¿Qué pensabas comprar por impulso?</label>
+      <input id="impulsoDesc" type="text" placeholder="Ej. Compra en línea o antojo" />
+      <label class="muted" for="impulsoMonto">Monto ($ USD)</label>
+      <input id="impulsoMonto" type="number" step="0.01" placeholder="25.00" />
+      <div class="btn-group">
+        <button class="warn" onclick="salvarImpulso()">No lo compré → Pasar a Ahorro</button>
+        <button class="secondary" onclick="addAhorroManual(10)">+ Ahorrar $10</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Resumen de Cuentas y Movimientos</h2>
+      <div class="item">
+        <div><strong>Discover it (...5215)</strong><div class="muted">Mínimo: $227.00 (vence 6 dic) · Saldo inicial: $3,228.08</div></div>
+        <span class="badge">Prioridad</span>
+      </div>
+      <div class="item">
+        <div><strong>Capital One Quicksilver (...2707)</strong><div class="muted">Plástico bloqueado · Pagar y mantener abierta</div></div>
+        <span class="badge">Activa</span>
+      </div>
+      <div class="item">
+        <div><strong>Préstamo personal (19.490% APR)</strong><div class="muted">Próximo vencimiento: 11 ene 2027 · Saldo inicial: $2,377.45</div></div>
+        <span class="badge">Al día</span>
+      </div>
+      <div id="historial" style="margin-top: 10px;"></div>
+      <div class="btn-group">
+        <button class="secondary" onclick="exportarDatos()">Respaldar (JSON)</button>
+        <button class="secondary" onclick="borrarHistorial()">Limpiar historial</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const KEY = "mi_plan_financiero_v1";
+    const META_OBJETIVO = 227;
+    const defaultState = {
+      metaAbonado: 0,
+      ahorro: 0,
+      movimientos: []
+    };
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(KEY);
+        return raw ? { ...defaultState, ...JSON.parse(raw) } : { ...defaultState };
+      } catch {
+        return { ...defaultState };
+      }
+    }
+
+    let state = loadState();
+
+    function saveState() {
+      localStorage.setItem(KEY, JSON.stringify(state));
+      render();
+    }
+
+    function fmt(n) {
+      return "$" + Number(n || 0).toFixed(2);
+    }
+
+    function addAbono(monto, nota) {
+      state.metaAbonado = Number((state.metaAbonado + monto).toFixed(2));
+      state.movimientos.unshift({
+        id: Date.now(),
+        texto: nota,
+        monto: monto,
+        fecha: new Date().toLocaleDateString("es-US")
+      });
+      saveState();
+    }
+
+    function resetMeta() {
+      state.metaAbonado = 0;
+      saveState();
+    }
+
+    function salvarImpulso() {
+      const descInput = document.getElementById("impulsoDesc");
+      const montoInput = document.getElementById("impulsoMonto");
+      const monto = parseFloat(montoInput.value);
+      if (!monto || monto <= 0) return;
+      const desc = (descInput.value || "Gasto evitado").trim();
+      state.ahorro = Number((state.ahorro + monto).toFixed(2));
+      state.movimientos.unshift({
+        id: Date.now(),
+        texto: "Ahorrado (evitó: " + desc + ")",
+        monto: monto,
+        fecha: new Date().toLocaleDateString("es-US")
+      });
+      descInput.value = "";
+      montoInput.value = "";
+      saveState();
+    }
+
+    function addAhorroManual(monto) {
+      state.ahorro = Number((state.ahorro + monto).toFixed(2));
+      state.movimientos.unshift({
+        id: Date.now(),
+        texto: "Ahorro directo",
+        monto: monto,
+        fecha: new Date().toLocaleDateString("es-US")
+      });
+      saveState();
+    }
+
+    function exportarDatos() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "respaldo-plan-financiero.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function borrarHistorial() {
+      state.movimientos = [];
+      saveState();
+    }
+
+    function render() {
+      const pct = Math.min(100, Math.round((state.metaAbonado / META_OBJETIVO) * 100));
+      document.getElementById("metaActual").textContent = fmt(state.metaAbonado);
+      document.getElementById("metaPct").textContent = pct + "%";
+      document.getElementById("metaBar").style.width = pct + "%";
+      document.getElementById("ahorroTotal").textContent = fmt(state.ahorro);
+
+      const hist = document.getElementById("historial");
+      if (!state.movimientos.length) {
+        hist.innerHTML = '<p class="muted">Sin movimientos registrados todavía.</p>';
+        return;
+      }
+      hist.innerHTML = state.movimientos.slice(0, 8).map(m =>
+        '<div class="item"><div><strong>' + m.texto + '</strong><div class="muted">' + m.fecha + '</div></div><strong>+' + fmt(m.monto) + '</strong></div>'
+      ).join("");
+    }
+
+    render();
+  </script>
+</body>
+</html>
