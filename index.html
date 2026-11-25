@@ -30,14 +30,13 @@ body{
   padding-bottom:40px;
 }
 .mono{font-family:var(--mono);font-weight:800}
-.num-hi{font-family:var(--mono);font-weight:900;color:#ffffff;text-shadow:0 0 12px rgba(255,255,255,.16)}
 .wrap{max-width:1100px;margin:0 auto}
 .card{background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:13px;margin-bottom:12px}
 .card h3{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--sky);margin-bottom:10px;font-weight:900}
 
-.top-bar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.src-box{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.dot{width:10px;height:10px;border-radius:50%;background:var(--y)}
+.top-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.src-box{display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--y);flex-shrink:0}
 .dot.on{background:var(--g);box-shadow:0 0 10px var(--g)}
 .dot.err{background:var(--r)}
 .src-txt{font-size:12px;font-weight:800;color:var(--sky)}
@@ -64,6 +63,18 @@ body{
 .box-btc small{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#7dd3fc;font-weight:900;display:block}
 .price-big{font-family:var(--mono);font-size:36px;font-weight:900;color:#ffffff;letter-spacing:-.02em;text-shadow:0 0 16px rgba(56,189,248,.22)}
 
+.liq-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+@media(max-width:620px){.liq-grid{grid-template-columns:1fr}}
+.box-liq{
+  background:var(--panel-2);
+  border:1.5px solid #60a5fa;
+  border-radius:12px;
+  padding:11px 14px;
+}
+.box-liq small{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#93c5fd;font-weight:900;display:block}
+.liq-big{font-family:var(--mono);font-size:28px;font-weight:900;color:#ffffff;margin-top:2px;text-shadow:0 0 14px rgba(96,165,250,.22)}
+.liq-sub{font-family:var(--mono);font-size:12px;font-weight:800;color:#e2e8f0;margin-top:3px}
+
 .box-tgt{
   background:linear-gradient(90deg,rgba(251,191,36,.20),rgba(24,36,69,.98));
   border:2px solid var(--y);
@@ -77,7 +88,7 @@ body{
 }
 .box-tgt small{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--y);font-weight:900;display:block}
 .tgt-big{font-family:var(--mono);font-size:32px;font-weight:900;color:#ffffff;letter-spacing:-.02em;text-shadow:0 0 16px rgba(251,191,36,.24)}
-@media(max-width:480px){.price-big{font-size:28px}.tgt-big{font-size:25px}}
+@media(max-width:480px){.price-big{font-size:28px}.liq-big{font-size:24px}.tgt-big{font-size:25px}}
 
 .dec-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
 @media(max-width:680px){.dec-grid{grid-template-columns:1fr}}
@@ -95,7 +106,7 @@ body{
 .call-banner.wait{border-color:var(--y);background:rgba(251,191,36,.15)}
 .call-title{font-size:19px;font-weight:900;letter-spacing:.01em}
 .call-sub{font-size:12px;font-weight:700;color:#f8fafc;margin-top:3px}
-.call-badge{font-family:var(--mono);font-size:14px;font-weight:900;padding:6px 10px;border-radius:8px;background:#090e1c;border:1.5px solid #60a5fa;color:#ffffff}
+.call-badge{font-family:var(--mono);font-size:14px;font-weight:900;padding:6px 10px;border-radius:8px;background:#090e1c;border:1.5px solid #60a5fa;color:#ffffff;flex-shrink:0}
 
 canvas{width:100%;height:245px;display:block;background:#070c18;border:1.5px solid var(--line);border-radius:10px;margin-top:12px}
 
@@ -165,6 +176,19 @@ th{color:#7dd3fc;font-size:11px;font-weight:900}
         <div id="hud-left" class="mono sk" style="font-size:18px;font-weight:900">Cierra en: —</div>
       </div>
 
+      <div class="liq-grid">
+        <div class="box-liq">
+          <small>Liquidación 60s (prom. ~1m)</small>
+          <div id="hdr-liq60" class="liq-big">—</div>
+          <div id="hdr-desfase" class="liq-sub">Desfase: —</div>
+        </div>
+        <div class="box-liq">
+          <small>Liquidación - objetivo</small>
+          <div id="hdr-liq-obj" class="liq-big">—</div>
+          <div id="hdr-winner" class="liq-sub">Ahora gana: —</div>
+        </div>
+      </div>
+
       <div class="box-tgt">
         <div>
           <small>Objetivo / Target (<span id="hud-asset-tgt">BTC</span> · <span id="hud-mk">15M</span>)</small>
@@ -209,13 +233,13 @@ th{color:#7dd3fc;font-size:11px;font-weight:900}
       <div class="c-item"><b id="c1-t">1. Modelo + Objetivo</b><span id="c1-d">—</span></div>
       <div class="c-item"><b id="c2-t">2. Distancia / Volatilidad</b><span id="c2-d">—</span></div>
       <div class="c-item"><b id="c3-t">3. RSI / Ritmo</b><span id="c3-d">—</span></div>
-      <div class="c-item"><b id="c4-t">4. Ventaja (Edge)</b><span id="c4-d">—</span></div>
+      <div class="c-item"><b id="c4-t">4. Vela / Desfase 60s</b><span id="c4-d">—</span></div>
     </div>
 
     <div class="grid2">
       <div>
         <label>Objetivo exacto (opcional)</label>
-        <input id="tgt" type="number" step="0.01" placeholder="ej. 91500.00 o 3120.50">
+        <input id="tgt" type="number" step="0.01" placeholder="ej. 58958.49 o 3120.50">
       </div>
       <div>
         <label>Minuto de corte del modelo</label>
@@ -234,7 +258,7 @@ th{color:#7dd3fc;font-size:11px;font-weight:900}
       <button id="reset" class="btn r">BORRAR TODO</button>
       <input id="impf" type="file" accept=".json" style="display:none">
     </div>
-    <div class="note">Modo sombra activo en 15m y 1h para BTC y ETH: registra decisiones en los cortes configurados y entrena los pesos del modelo al cerrar cada ventana.</div>
+    <div class="note">Modo sombra activo en 15m y 1h para BTC y ETH: muestra liquidación 60s, desfase, lectura de velas (estrella/fuga) y entrena los pesos al cerrar cada ventana.</div>
   </div>
 
   <div class="card">
@@ -371,6 +395,34 @@ function finalPrice(A,D,ws){
   const exact=cs.find(k=>k.t===we-60000);if(exact&&cs[cs.length-1].t>=we-60000)return exact.c;
   const after=cs.find(k=>k.t>=we);return after?after.o:null;
 }
+function liq60Avg(A,price){
+  const cs=feed[A].candles;
+  if(!cs.length)return price;
+  const recent=cs.slice(-2);
+  const sum=recent.reduce((acc,k)=>acc+k.c,0)+(price||recent[recent.length-1].c);
+  return sum/(recent.length+(price?1:0));
+}
+function candlePattern(A){
+  const cs=feed[A].candles;
+  if(cs.length<4)return {tag:"NEUTRA",bias:0};
+  const last=cs[cs.length-1];
+  const prevAvg=cs.slice(-6,-1).reduce((a,k)=>a+(k.h-k.l),0)/Math.max(1,cs.slice(-6,-1).length)||1;
+  const range=Math.max(0.0001,last.h-last.l);
+  const body=Math.abs(last.c-last.o);
+  const upWick=last.h-Math.max(last.o,last.c);
+  const dnWick=Math.min(last.o,last.c)-last.l;
+
+  if(range>=prevAvg*1.45&&body>=range*0.62){
+    return last.c>last.o?{tag:"FUGA ALZA",bias:1}:{tag:"FUGA BAJA",bias:-1};
+  }
+  if(upWick>=body*1.8&&upWick>=range*0.45){
+    return {tag:"ESTRELLA / RECHAZO ▲",bias:-1};
+  }
+  if(dnWick>=body*1.8&&dnWick>=range*0.45){
+    return {tag:"MARTILLO / REBOTE ▼",bias:1};
+  }
+  return {tag:"NORMAL",bias:0};
+}
 function sigma(A){
   const cs=feed[A].candles,n=Math.min(60,cs.length-1);if(n<5)return 0.0008;
   const a=[];for(let i=cs.length-n;i<cs.length;i++)a.push(Math.log(cs[i].c/cs[i-1].c));
@@ -387,18 +439,22 @@ function market(A,D){
   const f=feed[A];if(!f.price||!f.candles.length)return null;
   const ws=winStart(D),we=ws+D*60000,K=strike(A,D,ws);
   if(!K)return null;
+  const liq60=liq60Avg(A,f.price);
+  const desfase=f.price-liq60;
+  const liqObj=liq60-K;
+  const pat=candlePattern(A);
   const sg=sigma(A),left=Math.max(0.05,(we-Date.now())/60000);
-  const z=Math.log(f.price/K)/(sg*Math.sqrt(left));
+  const z=Math.log(liq60/K)/(sg*Math.sqrt(left));
   const p=Phi(z),mid=Math.min(99,Math.max(1,p*100));
-  return {A,D,ws,we,K,P:f.price,sg,left,z,pFair:p,elapsed:(Date.now()-ws)/60000,
+  return {A,D,ws,we,K,P:f.price,liq60,desfase,liqObj,pat,sg,left,z,pFair:p,elapsed:(Date.now()-ws)/60000,
     yesAsk:Math.min(99,Math.ceil(mid+0.5)),noAsk:Math.min(99,Math.ceil(100-mid+0.5))};
 }
 
 function getW(A,D,L){const m=S.assets[A].models,k=D+"_"+L;if(!m[k])m[k]=[0,0.2,0.12,0.15,0.65];return m[k];}
 function feats(m){
   const cs=feed[m.A].candles,c=x=>Math.max(-4,Math.min(4,x));
-  const r5=c(Math.log(m.P/ago(m.A,Math.min(5,cs.length-1)))/(m.sg*Math.sqrt(5)));
-  const r15=c(Math.log(m.P/ago(m.A,Math.min(15,cs.length-1)))/(m.sg*Math.sqrt(15)));
+  const r5=c(Math.log(m.liq60/ago(m.A,Math.min(5,cs.length-1)))/(m.sg*Math.sqrt(5)));
+  const r15=c(Math.log(m.liq60/ago(m.A,Math.min(15,cs.length-1)))/(m.sg*Math.sqrt(15)));
   return [1,r5,r15,(rsi(m.A)-50)/50,c(m.z)];
 }
 function predict(x,A,D,L){const w=getW(A,D,L);let s=0;for(let i=0;i<w.length;i++)s+=w[i]*x[i];return 1/(1+Math.exp(-s));}
@@ -410,7 +466,7 @@ function ensureOpenSnap(m){
   const baseCandle=cs.find(k=>k.t>=m.ws)||cs[cs.length-1];
   const p0=baseCandle?baseCandle.o:m.K;
   const z0=Math.log(p0/m.K)/(m.sg*Math.sqrt(Math.max(1,m.D)));
-  const m0={A:m.A,D:m.D,ws:m.ws,we:m.we,K:m.K,P:p0,sg:m.sg,left:m.D,z:z0};
+  const m0={A:m.A,D:m.D,ws:m.ws,we:m.we,K:m.K,P:p0,liq60:p0,sg:m.sg,left:m.D,z:z0};
   const probUp=Math.min(0.92,Math.max(0.08,0.5*Phi(z0)+0.5*predict(feats(m0),m.A,m.D,S.lockMin)));
   const snap={dir:probUp>=0.5?"UP":"DOWN",probUp,probDn:1-probUp};
   st.openSnap[key]=snap;
@@ -424,31 +480,28 @@ function evaluateSignal(m){
   const dir=r?r.dir:(liveProb>=0.5?"UP":"DOWN");
   const prob=r?r.prob:liveProb;
   const conf=Math.max(prob,1-prob)*100;
-  const entry=dir==="UP"?m.yesAsk:m.noAsk;
-  const edge=(prob-(entry/100))*100;
   const rVal=rsi(m.A);
-  const diff=m.P-m.K;
+  const diff=m.liq60-m.K;
+  const patAlign=(dir==="UP"&&m.pat.bias>=0)||(dir==="DOWN"&&m.pat.bias<=0);
 
   const c1Ok=(dir==="UP"&&diff>=-10)||(dir==="DOWN"&&diff<=10);
   const c2Ok=Math.abs(m.z)<=2.6&&m.left>=0.75;
   const overbought=dir==="UP"&&rVal>=78;
   const oversold=dir==="DOWN"&&rVal<=22;
   const c3Ok=!overbought&&!oversold&&conf>=60;
-  const c4Ok=edge>=1.5&&entry<=85;
+  const c4Ok=patAlign&&Math.abs(m.desfase)<=Math.max(120,m.K*0.0025);
   const score=(c1Ok?1:0)+(c2Ok?1:0)+(c3Ok?1:0)+(c4Ok?1:0);
 
   let headline="",sub="";
-  if(score>=3&&c4Ok&&c3Ok){
+  if(score>=3){
     headline=dir==="UP"?"SUBIRÁ · SEÑAL AL ALZA":"SEGUIRÁ BAJANDO · SEÑAL A LA BAJA";
-    sub=`Filtro ${score}/4 · Confianza ${conf.toFixed(0)}% · Edge ${edge>=0?"+":""}${edge.toFixed(1)}%`;
+    sub=`Filtro ${score}/4 · Confianza ${conf.toFixed(0)}% · Vela: ${m.pat.tag}`;
   }else{
     const baseDir=dir==="UP"?"SUBIRÁ (PRECAUCIÓN)":"SEGUIRÁ BAJANDO (PRECAUCIÓN)";
     headline=`${baseDir} · FILTRO ${score}/4`;
-    sub=!c4Ok
-      ?`Sin ventaja de precio (Edge ${edge>=0?"+":""}${edge.toFixed(1)}%) · Confianza ${conf.toFixed(0)}%`
-      :`Confianza ${conf.toFixed(0)}% · Edge ${edge>=0?"+":""}${edge.toFixed(1)}%`;
+    sub=`Confianza ${conf.toFixed(0)}% · Vela: ${m.pat.tag} · Desfase ${m.desfase>=0?"+":""}${usd(m.desfase)}`;
   }
-  return {dir,prob,conf,entry,edge,rVal,score,callType:dir,headline,sub,c1Ok,c2Ok,c3Ok,c4Ok,locked:!!r,lockMin:L};
+  return {dir,prob,conf,rVal,score,callType:dir,headline,sub,c1Ok,c2Ok,c3Ok,c4Ok,locked:!!r,lockMin:L};
 }
 
 function shadowStep(){
@@ -502,7 +555,7 @@ function drawChart(m){
     g.setLineDash([6,4]);g.strokeStyle="#fbbf24";g.lineWidth=1.6;g.beginPath();g.moveTo(0,y(m.K));g.lineTo(W-R,y(m.K));g.stroke();g.setLineDash([]);
     g.fillStyle="#fbbf24";g.fillText("OBJ",6,y(m.K)-5);
   }
-  const lineCol=m?(m.P>=m.K?"#4ade80":"#f87171"):"#38bdf8";
+  const lineCol=m?(m.liq60>=m.K?"#4ade80":"#f87171"):"#38bdf8";
   g.beginPath();
   pts.forEach((v,i)=>{const xx=x(i),yy=y(v);if(i===0)g.moveTo(xx,yy);else g.lineTo(xx,yy);});
   g.strokeStyle=lineCol;g.lineWidth=2.6;g.stroke();
@@ -534,8 +587,14 @@ function render(){
     const diff=m.P-m.K;
     const pct=(diff/m.K)*100;
     const isExact=!!st.ovr[view+"_"+m.ws];
+    const winUp=m.liq60>=m.K;
 
     $("hud-left").textContent=`Cierra en: ${fmtLeft(m.left)}`;
+    $("hdr-liq60").textContent=usd(m.liq60);
+    $("hdr-desfase").innerHTML=`Desfase: <span class="${m.desfase>=0?"up":"dn"}">${m.desfase>=0?"+":"-"}${usd(Math.abs(m.desfase))}</span>`;
+    $("hdr-liq-obj").innerHTML=`<span class="${winUp?"up":"dn"}">${winUp?"▲ +":"▼ -"}${usd(Math.abs(m.liqObj))}</span>`;
+    $("hdr-winner").innerHTML=`Ahora gana: <span class="${winUp?"up":"dn"}">${winUp?"UP (ALZA)":"DOWN (BAJA)"}</span>`;
+
     $("hdr-target").textContent=usd(m.K);
     $("hud-obj-tag").textContent=isExact?"Objetivo manual":"Apertura de ventana";
     $("hud-diff").innerHTML=`<span class="${diff>=0?"up":"dn"}">${diff>=0?"▲ +":"▼ "}${usd(Math.abs(diff))} (${pct>=0?"+":""}${pct.toFixed(2)}%)</span>`;
@@ -563,13 +622,13 @@ function render(){
     $("call-badge").textContent=`FILTRO ${ev.score}/4`;
 
     $("c1-t").innerHTML=`1. Modelo + Obj <span class="${ev.c1Ok?"up":"dn"}">${ev.c1Ok?"✓":"✗"}</span>`;
-    $("c1-d").textContent=`${sideLab(ev.dir)} · Dif ${diff>=0?"+":""}${diff.toFixed(1)}`;
+    $("c1-d").textContent=`${sideLab(ev.dir)} · Dif ${m.liqObj>=0?"+":""}${m.liqObj.toFixed(1)}`;
     $("c2-t").innerHTML=`2. Dist / Vol <span class="${ev.c2Ok?"up":"dn"}">${ev.c2Ok?"✓":"✗"}</span>`;
     $("c2-d").textContent=`z=${m.z.toFixed(1)} · Rest ${m.left.toFixed(1)}m`;
     $("c3-t").innerHTML=`3. RSI / Ritmo <span class="${ev.c3Ok?"up":"dn"}">${ev.c3Ok?"✓":"✗"}</span>`;
     $("c3-d").textContent=`RSI ${ev.rVal.toFixed(0)} · Conf ${ev.conf.toFixed(0)}%`;
-    $("c4-t").innerHTML=`4. Ventaja Edge <span class="${ev.c4Ok?"up":"dn"}">${ev.c4Ok?"✓":"✗"}</span>`;
-    $("c4-d").textContent=`Edge ${ev.edge>=0?"+":""}${ev.edge.toFixed(1)}% · ${ev.entry}¢`;
+    $("c4-t").innerHTML=`4. Vela / Desfase <span class="${ev.c4Ok?"up":"dn"}">${ev.c4Ok?"✓":"✗"}</span>`;
+    $("c4-d").textContent=`${m.pat.tag} · Desf ${m.desfase>=0?"+":""}${m.desfase.toFixed(1)}`;
   }
 
   const closed=st.shadow.filter(r=>r.status==="win"||r.status==="loss");
