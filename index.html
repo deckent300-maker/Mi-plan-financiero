@@ -102,7 +102,7 @@ body{
 }
 .call-banner.up{border-color:var(--g);background:rgba(74,222,128,.16)}
 .call-banner.dn{border-color:var(--r);background:rgba(248,113,113,.16)}
-.call-banner.wait{border-color:var(--y);background:rgba(251,191,36,.15)}
+.call-banner.wait{border-color:var(--y);background:rgba(251,191,36,.16)}
 .call-title{font-size:16px;font-weight:900;letter-spacing:.01em}
 .call-sub{font-size:11px;font-weight:700;color:#f8fafc;margin-top:2px}
 .call-badge{font-family:var(--mono);font-size:12px;font-weight:900;padding:4px 8px;border-radius:7px;background:#090e1c;border:1.5px solid #60a5fa;color:#ffffff;flex-shrink:0}
@@ -176,7 +176,7 @@ th{color:#7dd3fc;font-size:10px;font-weight:900}
 
       <div class="liq-grid">
         <div class="box-liq">
-          <small>Liquidación 60s (prom. ~1m)</small>
+          <small>Liquidación 60s (TWAP real ~1m)</small>
           <div id="hdr-liq60" class="liq-big">—</div>
           <div id="hdr-desfase" class="liq-sub">Desfase: —</div>
         </div>
@@ -231,7 +231,7 @@ th{color:#7dd3fc;font-size:10px;font-weight:900}
       <div class="c-item"><b id="c1-t">1. Modelo + Obj</b><span id="c1-d">—</span></div>
       <div class="c-item"><b id="c2-t">2. Dist / Vol</b><span id="c2-d">—</span></div>
       <div class="c-item"><b id="c3-t">3. RSI / Ritmo</b><span id="c3-d">—</span></div>
-      <div class="c-item"><b id="c4-t">4. Vela / Desfase</b><span id="c4-d">—</span></div>
+      <div class="c-item"><b id="c4-t">4. Vela / Multi-TF</b><span id="c4-d">—</span></div>
     </div>
 
     <div class="grid2">
@@ -256,7 +256,7 @@ th{color:#7dd3fc;font-size:10px;font-weight:900}
       <button id="reset" class="btn r">BORRAR TODO</button>
       <input id="impf" type="file" accept=".json" style="display:none">
     </div>
-    <div class="note">Modo sombra activo en 15m y 1h para BTC y ETH: muestra liquidación 60s, desfase, lectura de velas (estrella/fuga) y entrena los pesos al cerrar cada ventana.</div>
+    <div class="note">Modo sombra activo en 15m y 1h para BTC y ETH: calcula TWAP real de 60s, confluencia 15m/1h, volatilidad relativa, lectura de velas y ajusta pesos al cerrar cada ventana.</div>
   </div>
 
   <div class="card">
@@ -267,36 +267,50 @@ th{color:#7dd3fc;font-size:10px;font-weight:900}
 </div>
 
 <div id="toast"></div>
-
 <script>
 "use strict";
-const LS="btc_analysis_shadow_v2";
+const LS="btc_analysis_shadow_v3";
 const ASSETS=["BTC","ETH"];
+const FEAT_LEN=7;
+const BASE_W=[0,0.2,0.12,0.15,0.65,0.18,-0.15];
+
 function emptyAssetState(){
   return {
     shadow:[],openSnap:{},strikes:{},ovr:{},
-    models:{"15_1":[0,0.2,0.12,0.15,0.65],"15_3":[0,0.2,0.12,0.15,0.65],"15_5":[0,0.2,0.12,0.15,0.65],
-            "60_1":[0,0.2,0.12,0.15,0.65],"60_3":[0,0.2,0.12,0.15,0.65],"60_5":[0,0.2,0.12,0.15,0.65]}
+    models:{
+      "15_1":BASE_W.slice(),"15_3":BASE_W.slice(),"15_5":BASE_W.slice(),
+      "60_1":BASE_W.slice(),"60_3":BASE_W.slice(),"60_5":BASE_W.slice()
+    },
+    counts:{"15_1":0,"15_3":0,"15_5":0,"60_1":0,"60_3":0,"60_5":0}
   };
 }
 const DEF={lockMin:3,assets:{BTC:emptyAssetState(),ETH:emptyAssetState()}};
 const $=id=>document.getElementById(id);
 const clone=o=>JSON.parse(JSON.stringify(o));
 function merge(a,b){for(const k in b){const v=b[k];if(v&&typeof v==="object"&&!Array.isArray(v)&&a[k]&&typeof a[k]==="object"&&!Array.isArray(a[k]))merge(a[k],v);else a[k]=v;}return a;}
+
+function sanitizeState(raw){
+  const d=merge(clone(DEF),raw||{});
+  if(![1,3,5].includes(+d.lockMin))d.lockMin=3;
+  for(const A of ASSETS){
+    if(!d.assets[A])d.assets[A]=emptyAssetState();
+    const st=d.assets[A];
+    if(!st.counts||typeof st.counts!=="object")st.counts=emptyAssetState().counts;
+    for(const mk of Object.keys(DEF.assets[A].models)){
+      const arr=st.models&&st.models[mk];
+      if(!Array.isArray(arr)||arr.length!==FEAT_LEN||arr.some(n=>!isFinite(n))){
+        st.models[mk]=BASE_W.slice();
+      }
+      if(!isFinite(st.counts[mk]))st.counts[mk]=0;
+    }
+  }
+  return d;
+}
+
 function load(){
   try{
     const s=JSON.parse(localStorage.getItem(LS));
-    if(s){
-      const d=merge(clone(DEF),s);
-      for(const A of ASSETS){
-        if(!d.assets[A])d.assets[A]=emptyAssetState();
-        for(const mk of Object.keys(DEF.assets[A].models)){
-          if(!Array.isArray(d.assets[A].models[mk])||d.assets[A].models[mk].length!==5)
-            d.assets[A].models[mk]=DEF.assets[A].models[mk].slice();
-        }
-      }
-      return d;
-    }
+    if(s)return sanitizeState(s);
   }catch(e){}
   return clone(DEF);
 }
@@ -329,39 +343,72 @@ const SRC_MAP={
 
 let asset="BTC",view=15;
 const feed={
-  BTC:{srcIdx:0,candles:[],price:null,ws:null,wsActive:false,wsSource:""},
-  ETH:{srcIdx:0,candles:[],price:null,ws:null,wsActive:false,wsSource:""}
+  BTC:{srcIdx:0,candles:[],price:null,lastTickAt:0,ticks60:[],ws:null,wsActive:false,wsSource:""},
+  ETH:{srcIdx:0,candles:[],price:null,lastTickAt:0,ticks60:[],ws:null,wsActive:false,wsSource:""}
 };
 
 async function fetchJ(u){const c=new AbortController();const t=setTimeout(()=>c.abort(),6000);try{const r=await fetch(u,{signal:c.signal,cache:"no-store"});if(!r.ok)throw new Error(r.status);return await r.json();}finally{clearTimeout(t);}}
+
+function recordTick60(f,p,now=Date.now()){
+  f.ticks60.push({t:now,p});
+  const cut=now-60000;
+  while(f.ticks60.length && f.ticks60[0].t<cut)f.ticks60.shift();
+}
+
 function setPrice(A,p){
   if(!p||!isFinite(p)||p<=0)return;
-  const f=feed[A];f.price=p;
-  const m=Math.floor(Date.now()/60000)*60000,last=f.candles[f.candles.length-1];
+  const now=Date.now();
+  const f=feed[A];
+  f.price=p;
+  f.lastTickAt=now;
+  recordTick60(f,p,now);
+  const m=Math.floor(now/60000)*60000,last=f.candles[f.candles.length-1];
   if(last){
     if(m>last.t){f.candles.push({t:m,o:last.c,h:Math.max(last.c,p),l:Math.min(last.c,p),c:p});if(f.candles.length>500)f.candles.shift();}
     else{last.c=p;last.h=Math.max(last.h,p);last.l=Math.min(last.l,p);}
   }
 }
+
 function setOnline(A,v,msg){
   if(A!==asset)return;
   const f=feed[A],srcs=SRC_MAP[A];
   $("dot").className="dot"+(v?" on":(f.candles.length?"":" err"));
   $("src").textContent=msg||(v?`${srcs[f.srcIdx].name} · LIVE`:(f.candles.length?`${srcs[f.srcIdx].name} · VELAS`:"SIN CONEXIÓN"));
 }
+
 async function loadKlines(A){
   const f=feed[A],srcs=SRC_MAP[A];
   for(let i=0;i<srcs.length;i++){
     const j=(f.srcIdx+i)%srcs.length;
-    try{const k=srcs[j].pk(await fetchJ(srcs[j].kl));if(!k.length)throw 0;f.candles=k;f.srcIdx=j;if(!f.price)f.price=k[k.length-1].c;setOnline(A,true,f.wsActive?`${f.wsSource} · WS`:`${srcs[j].name} · 1M`);return;}catch(e){}
+    try{
+      const k=srcs[j].pk(await fetchJ(srcs[j].kl));
+      if(!k.length)throw 0;
+      f.candles=k;f.srcIdx=j;
+      if(!f.price){
+        const lastC=k[k.length-1].c;
+        f.price=lastC;f.lastTickAt=Date.now();
+        recordTick60(f,lastC,f.lastTickAt);
+      }
+      setOnline(A,true,f.wsActive?`${f.wsSource} · WS`:`${srcs[j].name} · 1M`);
+      return;
+    }catch(e){}
   }
   if(!f.candles.length)setOnline(A,false,"SIN CONEXIÓN");
 }
+
 async function tick(A){
   const f=feed[A],srcs=SRC_MAP[A];
-  try{const p=srcs[f.srcIdx].pt(await fetchJ(srcs[f.srcIdx].tk));if(!p)throw 0;setPrice(A,p);setOnline(A,true,f.wsActive?`${f.wsSource} · WS`:`${srcs[f.srcIdx].name} · LIVE`);}
-  catch(e){f.srcIdx=(f.srcIdx+1)%srcs.length;if(!f.wsActive)setOnline(A,f.candles.length>0,f.candles.length?`${srcs[f.srcIdx].name} · RETRY`:"CONECTANDO…");}
+  try{
+    const p=srcs[f.srcIdx].pt(await fetchJ(srcs[f.srcIdx].tk));
+    if(!p)throw 0;
+    setPrice(A,p);
+    setOnline(A,true,f.wsActive?`${f.wsSource} · WS`:`${srcs[f.srcIdx].name} · LIVE`);
+  }catch(e){
+    f.srcIdx=(f.srcIdx+1)%srcs.length;
+    if(!f.wsActive)setOnline(A,f.candles.length>0,f.candles.length?`${srcs[f.srcIdx].name} · RETRY`:"CONECTANDO…");
+  }
 }
+
 function connectWS(A){
   const f=feed[A];
   try{if(f.ws){f.ws.onclose=null;f.ws.close();}}catch(e){}
@@ -379,6 +426,7 @@ function connectWS(A){
 
 const winStart=(D,t=Date.now())=>Math.floor(t/(D*60000))*D*60000;
 function Phi(x){const t=1/(1+0.2316419*Math.abs(x));const d=0.3989423*Math.exp(-x*x/2);const p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return x>0?1-p:p;}
+
 function strike(A,D,ws){
   const st=S.assets[A],cs=feed[A].candles,key=D+"_"+ws;
   if(st.ovr[key])return st.ovr[key];
@@ -387,19 +435,34 @@ function strike(A,D,ws){
   const near=cs.filter(k=>k.t<=ws).slice(-1)[0];if(near){st.strikes[key]=near.c;return near.c;}
   return null;
 }
+
 function finalPrice(A,D,ws){
   const cs=feed[A].candles,we=ws+D*60000;
   if(Date.now()<we+2000||!cs.length)return null;
   const exact=cs.find(k=>k.t===we-60000);if(exact&&cs[cs.length-1].t>=we-60000)return exact.c;
   const after=cs.find(k=>k.t>=we);return after?after.o:null;
 }
+
 function liq60Avg(A,price){
-  const cs=feed[A].candles;
+  const f=feed[A],now=Date.now(),cut=now-60000;
+  const pts=f.ticks60.filter(x=>x.t>=cut);
+  if(pts.length>=2){
+    let wSum=0,tSum=0;
+    for(let i=0;i<pts.length;i++){
+      const nextT=i<pts.length-1?pts[i+1].t:now;
+      const dt=Math.max(50,Math.min(60000,nextT-pts[i].t));
+      wSum+=pts[i].p*dt;
+      tSum+=dt;
+    }
+    if(tSum>0)return wSum/tSum;
+  }
+  if(pts.length===1)return pts[0].p;
+  const cs=f.candles;
   if(!cs.length)return price;
-  const recent=cs.slice(-2);
-  const sum=recent.reduce((acc,k)=>acc+k.c,0)+(price||recent[recent.length-1].c);
-  return sum/(recent.length+(price?1:0));
+  const last=cs[cs.length-1];
+  return price!=null?(last.c+price)/2:last.c;
 }
+
 function candlePattern(A){
   const cs=feed[A].candles;
   if(cs.length<4)return {tag:"NEUTRA",bias:0};
@@ -421,11 +484,23 @@ function candlePattern(A){
   }
   return {tag:"NORMAL",bias:0};
 }
+
 function sigma(A){
   const cs=feed[A].candles,n=Math.min(60,cs.length-1);if(n<5)return 0.0008;
   const a=[];for(let i=cs.length-n;i<cs.length;i++)a.push(Math.log(cs[i].c/cs[i-1].c));
   const m=a.reduce((x,y)=>x+y,0)/a.length;return Math.max(0.0003,Math.sqrt(a.reduce((x,y)=>x+(y-m)**2,0)/a.length));
 }
+
+function volRatio(A){
+  const cs=feed[A].candles;
+  if(cs.length<20)return 1;
+  const shortR=cs.slice(-6).map((c,i,arr)=>i===0?0:Math.abs(Math.log(c.c/arr[i-1].c))).slice(1);
+  const longR=cs.slice(-24).map((c,i,arr)=>i===0?0:Math.abs(Math.log(c.c/arr[i-1].c))).slice(1);
+  const sAvg=shortR.reduce((a,b)=>a+b,0)/Math.max(1,shortR.length);
+  const lAvg=longR.reduce((a,b)=>a+b,0)/Math.max(1,longR.length);
+  return lAvg>0?sAvg/lAvg:1;
+}
+
 function rsi(A,n=14){
   const cs=feed[A].candles;if(cs.length<n+1)return 50;
   let g=0,l=0;for(let i=cs.length-n;i<cs.length;i++){const d=cs[i].c-cs[i-1].c;if(d>0)g+=d;else l-=d;}
@@ -444,19 +519,54 @@ function market(A,D){
   const sg=sigma(A),left=Math.max(0.05,(we-Date.now())/60000);
   const z=Math.log(liq60/K)/(sg*Math.sqrt(left));
   const p=Phi(z),mid=Math.min(99,Math.max(1,p*100));
-  return {A,D,ws,we,K,P:f.price,liq60,desfase,liqObj,pat,sg,left,z,pFair:p,elapsed:(Date.now()-ws)/60000,
-    yesAsk:Math.min(99,Math.ceil(mid+0.5)),noAsk:Math.min(99,Math.ceil(100-mid+0.5))};
+  const vr=volRatio(A);
+
+  const altD=D===15?60:15;
+  const altWs=winStart(altD),altK=strike(A,altD,altWs);
+  const altBias=altK?(liq60>=altK?1:-1):0;
+
+  return {
+    A,D,ws,we,K,P:f.price,liq60,desfase,liqObj,pat,sg,left,z,pFair:p,vr,altBias,
+    elapsed:(Date.now()-ws)/60000,
+    yesAsk:Math.min(99,Math.ceil(mid+0.5)),noAsk:Math.min(99,Math.ceil(100-mid+0.5))
+  };
 }
 
-function getW(A,D,L){const m=S.assets[A].models,k=D+"_"+L;if(!m[k])m[k]=[0,0.2,0.12,0.15,0.65];return m[k];}
+function getW(A,D,L){
+  const st=S.assets[A],k=D+"_"+L;
+  if(!Array.isArray(st.models[k])||st.models[k].length!==FEAT_LEN)st.models[k]=BASE_W.slice();
+  return st.models[k];
+}
+function getCount(A,D,L){
+  const st=S.assets[A],k=D+"_"+L;
+  return st.counts&&isFinite(st.counts[k])?st.counts[k]:0;
+}
+
 function feats(m){
   const cs=feed[m.A].candles,c=x=>Math.max(-4,Math.min(4,x));
   const r5=c(Math.log(m.liq60/ago(m.A,Math.min(5,cs.length-1)))/(m.sg*Math.sqrt(5)));
   const r15=c(Math.log(m.liq60/ago(m.A,Math.min(15,cs.length-1)))/(m.sg*Math.sqrt(15)));
-  return [1,r5,r15,(rsi(m.A)-50)/50,c(m.z)];
+  const desNorm=c(m.desfase/Math.max(1,m.K*m.sg*0.5));
+  return [1,r5,r15,(rsi(m.A)-50)/50,c(m.z),m.pat.bias,desNorm];
 }
-function predict(x,A,D,L){const w=getW(A,D,L);let s=0;for(let i=0;i<w.length;i++)s+=w[i]*x[i];return 1/(1+Math.exp(-s));}
-function train(x,y,A,D,L){const w=getW(A,D,L),p=predict(x,A,D,L);for(let i=0;i<w.length;i++)w[i]-=0.025*((p-y)*x[i]+0.001*w[i]);}
+
+function predict(x,A,D,L){
+  const w=getW(A,D,L);
+  let s=0;
+  for(let i=0;i<FEAT_LEN;i++)s+=(w[i]||0)*(x[i]||0);
+  return 1/(1+Math.exp(-s));
+}
+
+function train(x,y,A,D,L){
+  if(!Array.isArray(x)||x.length!==FEAT_LEN)return;
+  const st=S.assets[A],k=D+"_"+L,w=getW(A,D,L),n=getCount(A,D,L);
+  const p=predict(x,A,D,L);
+  const lr=Math.max(0.005,0.035/Math.sqrt(1+n/40));
+  for(let i=0;i<FEAT_LEN;i++){
+    w[i]-=lr*((p-y)*x[i]+0.0015*w[i]);
+  }
+  st.counts[k]=n+1;
+}
 
 function ensureOpenSnap(m){
   const st=S.assets[m.A],cs=feed[m.A].candles,key=m.D+"_"+m.ws;
@@ -464,7 +574,7 @@ function ensureOpenSnap(m){
   const baseCandle=cs.find(k=>k.t>=m.ws)||cs[cs.length-1];
   const p0=baseCandle?baseCandle.o:m.K;
   const z0=Math.log(p0/m.K)/(m.sg*Math.sqrt(Math.max(1,m.D)));
-  const m0={A:m.A,D:m.D,ws:m.ws,we:m.we,K:m.K,P:p0,liq60:p0,sg:m.sg,left:m.D,z:z0};
+  const m0={A:m.A,D:m.D,ws:m.ws,we:m.we,K:m.K,P:p0,liq60:p0,desfase:0,pat:{tag:"NEUTRA",bias:0},sg:m.sg,left:m.D,z:z0};
   const probUp=Math.min(0.92,Math.max(0.08,0.5*Phi(z0)+0.5*predict(feats(m0),m.A,m.D,S.lockMin)));
   const snap={dir:probUp>=0.5?"UP":"DOWN",probUp,probDn:1-probUp};
   st.openSnap[key]=snap;
@@ -481,25 +591,29 @@ function evaluateSignal(m){
   const rVal=rsi(m.A);
   const diff=m.liq60-m.K;
   const patAlign=(dir==="UP"&&m.pat.bias>=0)||(dir==="DOWN"&&m.pat.bias<=0);
+  const multiAlign=(dir==="UP"&&m.altBias>=0)||(dir==="DOWN"&&m.altBias<=0);
+  const maxDesf=Math.max(40,m.K*0.0018);
 
-  const c1Ok=(dir==="UP"&&diff>=-10)||(dir==="DOWN"&&diff<=10);
-  const c2Ok=Math.abs(m.z)<=2.6&&m.left>=0.75;
-  const overbought=dir==="UP"&&rVal>=78;
-  const oversold=dir==="DOWN"&&rVal<=22;
+  const c1Ok=(dir==="UP"&&diff>=-8)||(dir==="DOWN"&&diff<=8);
+  const c2Ok=Math.abs(m.z)<=2.5&&m.left>=0.75&&m.vr<=2.2;
+  const overbought=dir==="UP"&&rVal>=76;
+  const oversold=dir==="DOWN"&&rVal<=24;
   const c3Ok=!overbought&&!oversold&&conf>=60;
-  const c4Ok=patAlign&&Math.abs(m.desfase)<=Math.max(120,m.K*0.0025);
+  const c4Ok=patAlign&&multiAlign&&Math.abs(m.desfase)<=maxDesf;
   const score=(c1Ok?1:0)+(c2Ok?1:0)+(c3Ok?1:0)+(c4Ok?1:0);
 
-  let headline="",sub="";
+  let headline="",sub="",callType="wait";
   if(score>=3){
+    callType=dir;
     headline=dir==="UP"?"SUBIRÁ · SEÑAL AL ALZA":"SEGUIRÁ BAJANDO · SEÑAL A LA BAJA";
-    sub=`Filtro ${score}/4 · Confianza ${conf.toFixed(0)}% · Vela: ${m.pat.tag}`;
+    sub=`Filtro ${score}/4 · Conf. ${conf.toFixed(0)}% · ${m.pat.tag} · ${m.D===15?"1H":"15M"} ${m.altBias>=0?"▲":"▼"}`;
   }else{
-    const baseDir=dir==="UP"?"SUBIRÁ (PRECAUCIÓN)":"SEGUIRÁ BAJANDO (PRECAUCIÓN)";
-    headline=`${baseDir} · FILTRO ${score}/4`;
-    sub=`Confianza ${conf.toFixed(0)}% · Vela: ${m.pat.tag} · Desfase ${m.desfase>=0?"+":""}${usd(m.desfase)}`;
+    callType="wait";
+    const baseDir=dir==="UP"?"ALZA":"BAJA";
+    headline=`ESPERAR / PRECAUCIÓN (${baseDir}) · FILTRO ${score}/4`;
+    sub=`Conf. ${conf.toFixed(0)}% · Vela: ${m.pat.tag} · Desfase ${m.desfase>=0?"+":""}${usd(m.desfase)}`;
   }
-  return {dir,prob,conf,rVal,score,callType:dir,headline,sub,c1Ok,c2Ok,c3Ok,c4Ok,locked:!!r,lockMin:L};
+  return {dir,prob,conf,rVal,score,callType,headline,sub,c1Ok,c2Ok,c3Ok,c4Ok,locked:!!r,lockMin:L};
 }
 
 function shadowStep(){
@@ -613,8 +727,16 @@ function render(){
     $("dec-final-sub").textContent=`En ${fmtLeft(m.left)} · ${prevTxt}`;
 
     const banner=$("call-banner");
-    banner.className="call-banner "+(ev.callType==="UP"?"up":"dn");
-    $("call-title").className="call-title "+(ev.callType==="UP"?"up":"dn");
+    if(ev.callType==="UP"){
+      banner.className="call-banner up";
+      $("call-title").className="call-title up";
+    }else if(ev.callType==="DOWN"){
+      banner.className="call-banner dn";
+      $("call-title").className="call-title dn";
+    }else{
+      banner.className="call-banner wait";
+      $("call-title").className="call-title yl";
+    }
     $("call-title").textContent=ev.headline;
     $("call-sub").textContent=ev.sub;
     $("call-badge").textContent=`FILTRO ${ev.score}/4`;
@@ -622,11 +744,11 @@ function render(){
     $("c1-t").innerHTML=`1. Modelo + Obj <span class="${ev.c1Ok?"up":"dn"}">${ev.c1Ok?"✓":"✗"}</span>`;
     $("c1-d").textContent=`${sideLab(ev.dir)} · Dif ${m.liqObj>=0?"+":""}${m.liqObj.toFixed(1)}`;
     $("c2-t").innerHTML=`2. Dist / Vol <span class="${ev.c2Ok?"up":"dn"}">${ev.c2Ok?"✓":"✗"}</span>`;
-    $("c2-d").textContent=`z=${m.z.toFixed(1)} · Rest ${m.left.toFixed(1)}m`;
+    $("c2-d").textContent=`z=${m.z.toFixed(1)} · Vol ${m.vr.toFixed(1)}x`;
     $("c3-t").innerHTML=`3. RSI / Ritmo <span class="${ev.c3Ok?"up":"dn"}">${ev.c3Ok?"✓":"✗"}</span>`;
     $("c3-d").textContent=`RSI ${ev.rVal.toFixed(0)} · Conf ${ev.conf.toFixed(0)}%`;
-    $("c4-t").innerHTML=`4. Vela / Desfase <span class="${ev.c4Ok?"up":"dn"}">${ev.c4Ok?"✓":"✗"}</span>`;
-    $("c4-d").textContent=`${m.pat.tag} · Desf ${m.desfase>=0?"+":""}${m.desfase.toFixed(1)}`;
+    $("c4-t").innerHTML=`4. Vela / Multi-TF <span class="${ev.c4Ok?"up":"dn"}">${ev.c4Ok?"✓":"✗"}</span>`;
+    $("c4-d").textContent=`${m.pat.tag} · ${m.D===15?"1H":"15M"} ${m.altBias>=0?"▲":"▼"}`;
   }
 
   const closed=st.shadow.filter(r=>r.status==="win"||r.status==="loss");
@@ -674,13 +796,45 @@ $("imp").onclick=()=>$("impf").click();
 $("impf").onchange=e=>{
   const f=e.target.files[0];if(!f)return;
   const r=new FileReader();
-  r.onload=()=>{try{S=merge(clone(DEF),JSON.parse(r.result));$("lock-sel").value=String(S.lockMin);save();toast("Datos importados");render();}catch{toast("Archivo inválido");}};
+  r.onload=()=>{
+    try{
+      S=sanitizeState(JSON.parse(r.result));
+      $("lock-sel").value=String(S.lockMin);
+      settleAll();
+      save();
+      toast("Datos importados");
+      render();
+    }catch{toast("Archivo inválido");}
+  };
   r.readAsText(f);
 };
 $("reset").onclick=()=>{
   if(!confirm("¿Borrar historial sombra y pesos aprendidos de BTC y ETH?"))return;
   localStorage.removeItem(LS);S=clone(DEF);$("lock-sel").value=String(S.lockMin);toast("Datos reiniciados");render();
 };
+
+function syncAllConnections(force=false){
+  const now=Date.now();
+  for(const A of ASSETS){
+    const f=feed[A];
+    const stale=!f.lastTickAt || (now - f.lastTickAt > 6500);
+    if(force || !f.wsActive || stale){
+      loadKlines(A);
+      tick(A);
+      connectWS(A);
+    }
+  }
+}
+
+document.addEventListener("visibilitychange",()=>{
+  if(!document.hidden){
+    syncAllConnections(true);
+    shadowStep();
+    settleAll();
+    save();
+    render();
+  }
+});
 
 async function loop(){
   shadowStep();
@@ -696,7 +850,7 @@ async function loop(){
   await loop();
   setInterval(()=>ASSETS.forEach(A=>tick(A)),4000);
   setInterval(loop,1000);
-  setInterval(()=>ASSETS.forEach(A=>{if(!feed[A].wsActive)loadKlines(A);}),30000);
+  setInterval(()=>syncAllConnections(false),8000);
 })();
 </script>
 </body>
